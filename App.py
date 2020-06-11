@@ -21,8 +21,8 @@ from PyQt5.QtGui import *
 class Model():
     def __init__(self):
         print('Creating model...')
-        self.modelJson = 'ModelFiles/Model_loss10_1_NoshardLayer.json'
-        self.modelH5 = 'ModelFiles/Model_loss10_1_NoshardLayer.h5'
+        self.modelJson = 'ModelFiles/Model_loss_ES_40Ep.json'
+        self.modelH5 = 'ModelFiles/Model_loss_ES_40Ep.h5'
 
             
         pfrClassesPath = 'ModelFiles/pfrClasses.npy'
@@ -96,12 +96,18 @@ class Thread(QThread):
     def rollAverage(self,pfr,ft):
         #handle pfr rolling average
         if len(self.rollAveragePFR) == 10:
-            self.rollAveragePFR[0]= pfr[0]
+            newRollTemp = []*10
+            newRollTemp[0:8] = self.rollAveragePFR[1:9]
+            self.rollAveragePFR[0:8] = newRollTemp[0:8]
+            self.rollAveragePFR[9]= pfr[0]
         else:
             self.rollAveragePFR.append(pfr[0])
     
         if len(self.rollAverageFT) == 10:
-                self.rollAverageFT[0]= ft[0]
+            newRollTemp = []*10
+            newRollTemp[0:8] = self.rollAverageFT[1:9]
+            self.rollAverageFT[0:8] = newRollTemp[0:8]
+            self.rollAverageFT[9]= ft[0]
         else:
             self.rollAverageFT.append(ft[0])
         
