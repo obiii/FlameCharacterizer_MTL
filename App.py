@@ -2,7 +2,10 @@ import sys
 import cv2
 import numpy as np
 import os
+import subprocess
+from os import path
 from collections import Counter
+from collections import deque
 import keras
 import time
 import threading
@@ -19,15 +22,24 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 
 class Model():
+    def resource_path(self):
+        """ Get absolute path to resource, works for dev and for PyInstaller """
+        try:
+            # PyInstaller creates a temp folder and stores path in _MEIPASS
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.abspath(".")
+        return base_path
     def __init__(self):
         print('Creating model...')
-        self.modelJson = 'ModelFiles/Model_loss_ES_40Ep.json'
-        self.modelH5 = 'ModelFiles/Model_loss_ES_40Ep.h5'
-
-            
-        pfrClassesPath = 'ModelFiles/pfrClasses.npy'
+        self.modelJson = 'Model_loss_ES_40Ep.json'
+        self.modelH5 = 'Model_loss_ES_40Ep.h5'
+        pfrClassesPath = 'pfrClasses.npy'   
+        ftClassesPath = 'ftClasses.npy'
         
-        ftClassesPath = 'ModelFiles/ftClasses.npy'
+        
+        pfrClassesPath = os.path.join(self.resource_path(),pfrClassesPath)
+        ftClassesPath = os.path.join(self.resource_path(),ftClassesPath)
         
         self.pfrEncoder = LabelEncoder()
         self.pfrEncoder.classes_ = np.load(pfrClassesPath,allow_pickle=True)
@@ -51,6 +63,11 @@ class Model():
             
         modelJsonPath = self.modelJson
         modelH5Path = self.modelH5
+        
+        modelJsonPath = os.path.join(self.resource_path(),modelJsonPath)
+        modelH5Path = os.path.join(self.resource_path(),modelH5Path)
+        
+        print(modelJsonPath+'##################'+modelH5Path)
         
         with open(modelJsonPath, 'r') as f:
             model = model_from_json(f.read())
@@ -88,26 +105,24 @@ class Thread(QThread):
             self.model = appData.model
         self.file = appData.file
         
-        self.rollAveragePFR =[]
-        self.rollAverageFT = []
+        self.rollAveragePFR = deque([])
+        self.rollAverageFT = deque([])
         print('Thread init Done')
         
     
     def rollAverage(self,pfr,ft):
         #handle pfr rolling average
         if len(self.rollAveragePFR) == 10:
-            newRollTemp = []*10
-            newRollTemp[0:8] = self.rollAveragePFR[1:9]
-            self.rollAveragePFR[0:8] = newRollTemp[0:8]
-            self.rollAveragePFR[9]= pfr[0]
+            self.rollAveragePFR.rotate(-1)
+            self.rollAveragePFR.pop()
+            self.rollAveragePFR.append(pfr[0])
         else:
             self.rollAveragePFR.append(pfr[0])
     
         if len(self.rollAverageFT) == 10:
-            newRollTemp = []*10
-            newRollTemp[0:8] = self.rollAverageFT[1:9]
-            self.rollAverageFT[0:8] = newRollTemp[0:8]
-            self.rollAverageFT[9]= ft[0]
+            self.rollAverageFT.rotate(-1)
+            self.rollAverageFT.pop()
+            self.rollAverageFT.append(ft[0])
         else:
             self.rollAverageFT.append(ft[0])
         
@@ -134,8 +149,9 @@ class Thread(QThread):
             output = imutils.resize(output, width=400)
             
             truePFR,trueFT = self.model.classify(image)
-            truePFR,trueFT = self.rollAverage(truePFR,trueFT)
             print(truePFR,trueFT)
+            truePFR,trueFT = self.rollAverage(truePFR,trueFT)
+            
             
             pfrtext = "PFR : {pfr}".format(pfr =truePFR)
             fttext =  "Fuel Type : {ft}".format(ft=trueFT)
@@ -200,6 +216,15 @@ class ThreadImage(QThread):
         
 class App(QWidget):
 
+    def resource_path(self,relative_path):
+        """ Get absolute path to resource, works for dev and for PyInstaller """
+        try:
+            # PyInstaller creates a temp folder and stores path in _MEIPASS
+            base_path = sys._MEIPASS
+        except Exception:
+            base_path = os.path.abspath(".")
+        
+        return os.path.join(base_path, relative_path)
     def __init__(self):
         super().__init__()
         self.title = 'Flame Characterization -  Siemens Turbomachinery AB'
@@ -266,7 +291,10 @@ class App(QWidget):
         self.infoLabel.setAlignment(Qt.AlignLeft)
         self.label.setAlignment(Qt.AlignCenter)
         
-        imPath= 'AppImages/Siemens.jpg'
+        imPath= 'Siemens.jpg'
+        
+        imPath = self.resource_path(imPath)
+        print('logo: ',imPath)
         
         pixmap = QPixmap(imPath)
         self.label.setPixmap(pixmap)
